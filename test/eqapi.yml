@@ -1,12 +1,692 @@
 {
   "openapi" : "3.0.0",
   "info" : {
+    "title" : "EqAPI - PoC - Object notation",
+    "description" : "<h3>Purpose</h3>\n<p>\nThis API can be used to create and update participants data objects and their properties in the EquatePlus system.\n</p>\n<h3>CRUD operations</h3>\n</ul>\n<li>EqAPI provides mechanisms to simplify <b>C</b>reate, <b>U</b>pdate, \n<b>R</b>ead and <b>D</b>elete operations.</li>\n<li>All participant object requests require <b>participant_local_id</b> as a key to \nuniquely identify the participant.</li>\n<li>Create and Update are implemented with the POST endpoint /participant/load. This </li>\n\n<li>A participant is created if the participant does not exist, i.e. the key \n<b>participant_local_id</b> does not exist in the system.</li>\n<li>The participant object exposes 60 participant properties of which 11 are \nrequired when the participant is created. \nThe remaining 49 properties are optional and their usage depends \non the use case. </li>\n<li>Only the properties provided in the participant object are updated.\nOmitted properties are not changed in the system.</li> \n</ul>\n<h4>Read</h4>\n<ul> \n<li>The GET API will return all exposed participant properties.</li>\n<li>Reading is experimental and should not be used as a reporting feature.</li>\n</ul>\n<h4>Update</h4>\n<ul>\n\n<li>Properties that are not provided are not updated; they keep their value in the system.</li>\n</ul>\n<h4>Delete</h4>\n<ul>\n<li>Deletion of a participant is not supported for integrity reasons.</li>\n<li>See \"Update\" above for deletions of property values.</li>\n</ul>    \n<h3>About required and nullable properties</h3>\n<h4>Required properties</h4>\n<p>\nThere are 11 properties that are required and cannot be null.\n\n</p>\n<ol>\n  <li>participantLocalId</li>\n  <li>firstName</li>\n  <li>lastName</li>\n  <li>businessName</li>\n  <li>birthDate</li>\n  <li>citizenship</li>\n  <li>locationCountry</li>\n  <li>employmentStatus</li>\n  <li>employmentType</li>\n  <li>rank</li>\n  <li>payrollId</li>\n</ol>\n<p>\nThese properties can be updated to other valid values; but they cannot be set to null.\nTherefore, their JSON representation is of basic type string or string formatted as dates.\n</p>\n<h5>Examples</h5>\n<code>\n  { \"firstName\" : \"Max\" }\n  { \"birthDate\" : \"1959-06-14\" }\n</code>\n<h4>Nullable properties</h4>\n<p>\nThe remaining 49 optional properties can be null. \nTheir usage depends on the business use case.\nThey do not need to be provided in the JSON.\nIf a property is not provided or the property value is null, then the property is not updated in the system.\nThis provides a flexible way to selectively update or not update properties. In order to selectively set a  \nnullable property to null, a special \"setToNull\" flag can be provided.\n</p>\n<h5>Examples</h5>\n<code>\n  // Set citizenship2 to CH \n  { citizenship2 : { \"data\" : \"CH\" } }\n</code>\n<code>\n  // citizenship2 not updated\n  {}\n  // or\n  { citizenship2 : null }\n</code>\n<code>\n  // Set citizenship2 to null\n  { citizenship2 : { \"setToNull\" : true} }\n</code>   \n<p>\nThis behavior is not best practice RESTful or <a href=\"https://datatracker.ietf.org/doc/html/rfc7396\">RFC7396</a> \nor <a href=\"https://datatracker.ietf.org/doc/html/rfc6902\">RFC6902</a> compliant, but it is unambiguous\nand provides a solution for all client systems that to not support the notion of a delta update .\n</p>\n<h3>Validation</h3>\n<p>\nParticipant data is validated for syntactic, semantic and context correctness.\nSee property documentation for details.\n</p>  \n<ul>\n<li><b>8859-1 only</b> - Only \"printable\" ISO 8859-1 characters are allowed in the JSON (payload and context). \n8859-1 positions 0x20 to 0x7E and 0xA0 to 0xFF are considered \"printable\".\nI.e. no Chinese like &#x4F00;&#x4F10; or or other out of 8859-1 range Unicode chracters are permitted.\nIf an out of range character is encountered, the system will provide an error like \n\"...value contains characters that do not conform to ISO-8859-1:range from 0x20 to 0x7E and 0xA0 to 0xFF\".\n<li><b>Range validation</b> - Some numeric properties need to be within a specific range.</li>\n<li><b>Regex validation</b> - Some properties are checked with a regex for a valid character pattern.</li>\n<li><b>Validator rules</b> - System context specific validators such as isValidCountry() or isValidCodeValue()\nare applied. \n</ul>",
+    "termsOfService" : "https://eqapi.wpcomstaging.com/eqapi-poc-sla/",
+    "contact" : {
+      "name" : "Marco Forster",
+      "url" : "eqapi.wordpress.com",
+      "email" : "marco.forster@equatex.com"
+    },
     "version" : "1.0"
   },
   "servers" : [ {
     "url" : "https://virtserver.swaggerhub.com/EQX-CPU/EqAPI-PoC/1.0",
     "description" : "SwaggerHub API Auto Mocking"
+  }, {
+    "url" : "http://localhost:49013",
+    "description" : "Inferred Url"
   } ],
-  "paths" : { },
-  "components" : { }
+  "tags" : [ {
+    "name" : "corporate-client-service",
+    "description" : "Corporate Client Service"
+  } ],
+  "paths" : {
+    "/participant/load" : {
+      "post" : {
+        "tags" : [ "corporate-client-service" ],
+        "description" : "Load -> insert / update participant",
+        "operationId" : "loadParticipant",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoadRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoadResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/participant/patch" : {
+      "patch" : {
+        "tags" : [ "corporate-client-service" ],
+        "description" : "Patch -> update participant properties selectively - deprecated",
+        "operationId" : "patchParticipant",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoadRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoadResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/participant/status" : {
+      "get" : {
+        "tags" : [ "corporate-client-service" ],
+        "description" : "Return the load status of a participant load request.",
+        "operationId" : "getParticipantLoadStatus",
+        "parameters" : [ {
+          "name" : "requestId",
+          "in" : "query",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "loadId",
+          "in" : "query",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "receiptId",
+          "in" : "query",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "version",
+          "in" : "query",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/LoadStatus"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/participant/query" : {
+      "get" : {
+        "tags" : [ "corporate-client-service" ],
+        "description" : "Query --> Return all exposed properties of an participant object",
+        "operationId" : "getParticipantByClientId",
+        "parameters" : [ {
+          "name" : "requestId",
+          "in" : "query",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "version",
+          "in" : "query",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "participantId",
+          "in" : "query",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "participantLocalId",
+          "in" : "query",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "sortOrder",
+          "in" : "query",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/OneOfPayloadData"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "NullableString" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "string",
+            "description" : "The value of the property.",
+            "nullable" : true
+          },
+          "isNull" : {
+            "type" : "boolean",
+            "description" : "If set to true the property will be set to null in the system."
+          }
+        },
+        "description" : "A string object ....",
+        "nullable" : true
+      },
+      "NullableDate" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "isNull" : {
+            "type" : "boolean"
+          }
+        },
+        "format" : "date"
+      },
+      "NullableNumber" : {
+        "type" : "object",
+        "properties" : {
+          "data" : {
+            "type" : "number"
+          },
+          "isNull" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Header" : {
+        "title" : "Header",
+        "type" : "object",
+        "properties" : {
+          "requestId" : {
+            "type" : "string"
+          },
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "apiVersion" : {
+            "type" : "string",
+            "enum" : [ "v1", "v2" ]
+          }
+        }
+      },
+      "LoadId" : {
+        "title" : "LoadId",
+        "type" : "object",
+        "properties" : {
+          "receiptId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "loadId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "loadState" : {
+            "type" : "string",
+            "enum" : [ "APPROV", "UNAPPR", "DONE", "FAIL" ]
+          }
+        }
+      },
+      "LoadRequest" : {
+        "title" : "LoadRequest",
+        "type" : "object",
+        "properties" : {
+          "header" : {
+            "$ref" : "#/components/schemas/Header"
+          },
+          "loadRequestBody" : {
+            "$ref" : "#/components/schemas/LoadRequestBody"
+          }
+        }
+      },
+      "LoadRequestBody" : {
+        "title" : "LoadRequestBody",
+        "type" : "object",
+        "properties" : {
+          "needsApproval" : {
+            "type" : "string",
+            "enum" : [ "Y", "N" ]
+          },
+          "callbackUrl" : {
+            "type" : "string"
+          },
+          "payload" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Payload"
+            }
+          }
+        }
+      },
+      "LoadApprove" : {
+        "title" : "LoadApprove",
+        "type" : "object",
+        "properties" : {
+          "header" : {
+            "$ref" : "#/components/schemas/Header"
+          },
+          "loadList" : {
+            "$ref" : "#/components/schemas/LoadList"
+          }
+        }
+      },
+      "LoadResponse" : {
+        "title" : "LoadResponse",
+        "type" : "object",
+        "properties" : {
+          "header" : {
+            "$ref" : "#/components/schemas/Header"
+          },
+          "loadResponseBody" : {
+            "$ref" : "#/components/schemas/LoadList"
+          }
+        }
+      },
+      "LoadList" : {
+        "title" : "LoadList",
+        "type" : "object",
+        "properties" : {
+          "loadIds" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LoadId"
+            }
+          }
+        }
+      },
+      "LoadStatus" : {
+        "title" : "LoadStatus",
+        "type" : "object",
+        "properties" : {
+          "header" : {
+            "$ref" : "#/components/schemas/Header"
+          },
+          "payloadWithLoadId" : {
+            "$ref" : "#/components/schemas/PayloadWithLoadId"
+          },
+          "loadMessage" : {
+            "$ref" : "#/components/schemas/LoadMessage"
+          }
+        }
+      },
+      "LoadResult" : {
+        "title" : "LoadResult",
+        "type" : "object",
+        "properties" : {
+          "header" : {
+            "$ref" : "#/components/schemas/Header"
+          },
+          "loadResultBody" : {
+            "$ref" : "#/components/schemas/LoadResultBody"
+          }
+        }
+      },
+      "LoadResultBody" : {
+        "title" : "LoadResultBody",
+        "type" : "object",
+        "properties" : {
+          "loadResult" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/LoadResultDetail"
+            }
+          }
+        }
+      },
+      "LoadResultDetail" : {
+        "title" : "LoadResultDetail",
+        "type" : "object",
+        "properties" : {
+          "loadId" : {
+            "$ref" : "#/components/schemas/LoadId"
+          },
+          "loadMessage" : {
+            "$ref" : "#/components/schemas/LoadMessage"
+          }
+        }
+      },
+      "LoadMessage" : {
+        "title" : "LoadMessage",
+        "type" : "object",
+        "properties" : {
+          "error" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "QueryRequest" : {
+        "title" : "QueryRequest",
+        "type" : "object",
+        "properties" : {
+          "header" : {
+            "$ref" : "#/components/schemas/Header"
+          },
+          "queryRequestBody" : {
+            "$ref" : "#/components/schemas/QueryRequestBody"
+          }
+        }
+      },
+      "QueryRequestBody" : {
+        "title" : "QueryRequestBody",
+        "type" : "object",
+        "properties" : {
+          "queryId" : {
+            "type" : "string"
+          },
+          "queryIdType" : {
+            "type" : "string",
+            "enum" : [ "PARTICIPANT_ID", "PARTICIPANT_LOCAL_ID", "INVENTORY_ID" ]
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pageSize" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sortKey" : {
+            "type" : "string"
+          },
+          "sortOrder" : {
+            "type" : "string",
+            "enum" : [ "ASC", "DESC" ]
+          }
+        }
+      },
+      "Payload" : {
+        "title" : "Payload",
+        "type" : "object",
+        "properties" : {
+          "payloadId" : {
+            "type" : "string"
+          },
+          "payloadIdType" : {
+            "type" : "string",
+            "enum" : [ "PARTICIPANT_ID", "PARTICIPANT_LOCAL_ID", "INVENTORY_ID" ]
+          },
+          "payloadType" : {
+            "type" : "string",
+            "enum" : [ "PATCH", "PARTICIPANT" ]
+          },
+          "payloadVersion" : {
+            "type" : "string",
+            "enum" : [ "v1", "v2" ]
+          },
+          "data" : {
+            "type" : "object",
+            "discriminator" : {
+              "propertyName" : "objectType"
+            },
+            "oneOf" : [ {
+              "$ref" : "./participant.yml#/Participant"
+            }, {
+              "$ref" : "#/components/schemas/PatchRequest"
+            }, {
+              "$ref" : "#/components/schemas/Encrypted"
+            } ]
+          }
+        }
+      },
+      "OneOfPayloadData" : {
+        "title" : "OneOfPayloadData",
+        "type" : "object",
+        "properties" : {
+          "payload" : {
+            "$ref" : "#/components/schemas/Payload"
+          }
+        },
+        "description" : "Derived from payload -> oneOf -> data TBD"
+      },
+      "PayloadWithLoadId" : {
+        "title" : "PayloadWithLoadId",
+        "type" : "object",
+        "properties" : {
+          "loadId" : {
+            "$ref" : "#/components/schemas/LoadId"
+          },
+          "payload" : {
+            "$ref" : "#/components/schemas/Payload"
+          }
+        }
+      },
+      "PagePayload" : {
+        "type" : "object",
+        "properties" : {
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64",
+            "nullable" : true
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PayloadWithLoadId"
+            }
+          },
+          "number" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/Sort"
+          },
+          "last" : {
+            "type" : "boolean",
+            "nullable" : true
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "first" : {
+            "type" : "boolean",
+            "nullable" : true
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/Pageable"
+          },
+          "empty" : {
+            "type" : "boolean",
+            "nullable" : true
+          }
+        }
+      },
+      "Pageable" : {
+        "type" : "object",
+        "properties" : {
+          "offset" : {
+            "type" : "integer",
+            "format" : "int64",
+            "nullable" : true
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/Sort"
+          },
+          "pageSize" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "pageNumber" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "unpaged" : {
+            "type" : "boolean",
+            "nullable" : true
+          },
+          "paged" : {
+            "type" : "boolean",
+            "nullable" : true
+          }
+        }
+      },
+      "Sort" : {
+        "type" : "object",
+        "properties" : {
+          "sorted" : {
+            "type" : "boolean",
+            "nullable" : true
+          },
+          "unsorted" : {
+            "type" : "boolean",
+            "nullable" : true
+          },
+          "empty" : {
+            "type" : "boolean",
+            "nullable" : true
+          }
+        }
+      },
+      "Encrypted" : {
+        "title" : "Encrypted",
+        "required" : [ "objectType" ],
+        "type" : "object",
+        "properties" : {
+          "objectType" : {
+            "type" : "string"
+          },
+          "encryptedData" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PatchRequest" : {
+        "title" : "PatchRequest",
+        "required" : [ "objectType" ],
+        "type" : "object",
+        "properties" : {
+          "objectType" : {
+            "type" : "string"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PatchDocument"
+            }
+          }
+        }
+      },
+      "PatchDocument" : {
+        "required" : [ "op", "path" ],
+        "type" : "object",
+        "properties" : {
+          "op" : {
+            "type" : "string",
+            "description" : "The operation to be performed",
+            "enum" : [ "add", "remove", "replace" ]
+          },
+          "path" : {
+            "type" : "string",
+            "description" : "A JSON-Pointer"
+          },
+          "value" : {
+            "type" : "object",
+            "description" : "The value to be used within the operations."
+          },
+          "from" : {
+            "type" : "string",
+            "description" : "A string containing a JSON Pointer value."
+          }
+        },
+        "description" : "A JSONPatch document as defined by RFC 6902"
+      }
+    }
+  }
 }
